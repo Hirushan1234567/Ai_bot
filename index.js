@@ -87,14 +87,34 @@ function getHistory(userId) {
   if (!histories.has(id)) histories.set(id, []);
   return histories.get(id);
 }
-function menu() {
-  return { inline_keyboard: [
-    [{ text: "💬 Chat", callback_data: "mode:chat" }, { text: "🧑‍💻 Developer", callback_data: "mode:coding" }],
+function menu(page = "main", userId = "") {
+  const home = [[{ text: "🏠 Main Menu", callback_data: "page:main" }]];
+  if (page === "modes") return { inline_keyboard: [
+    [{ text: "💬 Chat AI", callback_data: "mode:chat" }, { text: "🧑‍💻 Developer", callback_data: "mode:coding" }],
     [{ text: "🇱🇰 Sinhala Pro", callback_data: "mode:sinhala" }, { text: "🐞 Debugger", callback_data: "mode:debugger" }],
     [{ text: "🐍 Python", callback_data: "mode:python" }, { text: "🛡️ Security", callback_data: "mode:security" }],
-    [{ text: "🧠 Memory", callback_data: "memory" }, { text: "📊 Status", callback_data: "status" }],
-    [{ text: "🧹 Clear chat", callback_data: "clear" }, { text: "ℹ️ Help", callback_data: "help" }]
+    ...home
   ] };
+  if (page === "tools") return { inline_keyboard: [
+    [{ text: "🔎 Web Search", callback_data: "tool:search" }],
+    [{ text: "📄 File Analyzer", callback_data: "tool:file" }],
+    [{ text: "🏠 Main Menu", callback_data: "page:main" }]
+  ] };
+  if (page === "account") return { inline_keyboard: [
+    [{ text: "🧠 Memory", callback_data: "memory" }, { text: "📊 Status", callback_data: "status" }],
+    [{ text: "🧹 Clear Chat", callback_data: "clear" }, { text: "🗑️ Forget Memory", callback_data: "forget:confirm" }],
+    [{ text: "🎛️ Change Mode", callback_data: "page:modes" }],
+    ...home
+  ] };
+  const rows = [
+    [{ text: "💬 Chat AI", callback_data: "mode:chat" }, { text: "🧑‍💻 Developer", callback_data: "mode:coding" }],
+    [{ text: "🇱🇰 Sinhala Pro", callback_data: "mode:sinhala" }, { text: "🐞 Debugger", callback_data: "mode:debugger" }],
+    [{ text: "🐍 Python", callback_data: "mode:python" }, { text: "🛡️ Security", callback_data: "mode:security" }],
+    [{ text: "🧰 Tools", callback_data: "page:tools" }, { text: "👤 My Account", callback_data: "page:account" }],
+    [{ text: "📊 Status", callback_data: "status" }, { text: "ℹ️ Help", callback_data: "help" }]
+  ];
+  if (isAdmin(userId)) rows.push([{ text: "👑 Admin Panel", callback_data: "admin" }]);
+  return { inline_keyboard: rows };
 }
 async function sendLongMessage(chatId, content) {
   const chunks = String(content).match(/[\s\S]{1,3900}/g) || ["(No response)"];
@@ -187,7 +207,7 @@ async function analyzeDocument(msg) {
 bot.onText(/^\/start(?:@\w+)?$/, async msg => {
   trackUser(msg.from.id);
   modes.set(String(msg.from.id), "chat");
-  await bot.sendMessage(msg.chat.id, "🤖 *SHAN UNCENSORED AI*\n\nසිංහල සහ English Chat, Developer Mode, Code Debugger, File Analyzer, Memory සහ Web Search භාවිතා කරන්න.\n\n/mode මඟින් mode එක තෝරන්න. /search වචන මඟින් web search කරන්න.", { parse_mode: "Markdown", ...menu() });
+  await bot.sendMessage(msg.chat.id, "🤖 *SHAN UNCENSORED AI*\n\nසිංහල සහ English Chat, Developer Mode, Code Debugger, File Analyzer, Memory සහ Web Search භාවිතා කරන්න.\n\n/mode මඟින් mode එක තෝරන්න. /search වචන මඟින් web search කරන්න.", { parse_mode: "Markdown", ...menu("main", msg.from.id) });
 });
 bot.onText(/^\/help(?:@\w+)?$/, async msg => {
   await bot.sendMessage(msg.chat.id,
@@ -247,24 +267,54 @@ bot.onText(/^\/admin(?:@\w+)?$/, async msg => {
 
 bot.on("callback_query", async query => {
   const chatId = query.message?.chat?.id;
+  const messageId = query.message?.message_id;
   const userId = String(query.from.id);
   const data = query.data || "";
   await bot.answerCallbackQuery(query.id).catch(() => {});
+  const editMenu = async (page, text) => {
+    if (!chatId || !messageId) return;
+    await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, reply_markup: menu(page, userId) }).catch(() => {});
+  };
+  if (data.startsWith("page:")) {
+    const page = data.slice(5);
+    const titles = { main: "🤖 SHAN UNCENSORED AI\n\nMain Menu එකට ආයුබෝවන්!", modes: "🎛️ AI Mode එක තෝරන්න:", tools: "🧰 Tools Menu\n\nTool එකක් තෝරන්න.", account: "👤 My Account\n\nChat සහ Memory කළමනාකරණය කරන්න." };
+    return editMenu(page, titles[page] || titles.main);
+  }
   if (data.startsWith("mode:")) {
     const mode = data.slice(5);
     if (!modePrompts[mode]) return;
     modes.set(userId, mode);
-    return bot.sendMessage(chatId, `✅ ${mode.toUpperCase()} MODE සක්‍රීයයි. දැන් ප්‍රශ්නය එවන්න.`);
+    return bot.sendMessage(chatId, `✅ ${mode.toUpperCase()} MODE සක්‍රීයයි. දැන් ප්‍රශ්නය එවන්න.`, { reply_markup: menu("main", userId) });
   }
-  if (data === "clear") {
+  if (data === "tool:search") return bot.sendMessage(chatId, "🔎 Web Search භාවිතය:\n/search ඔයාගේ සෙවීම මෙතැන ලියන්න\nඋදා: /search Node.js documentation", { reply_markup: menu("tools", userId) });
+  if (data === "tool:file") return bot.sendMessage(chatId, "📄 File Analyzer: TXT, MD, JS, PY, JSON, HTML, CSS, CSV, XML, YAML, LOG, SQL හෝ SH file එකක් Telegram Document එකක් ලෙස එවන්න.", { reply_markup: menu("tools", userId) });
+  if (data === "clear") return bot.sendMessage(chatId, "Chat history එක මකන්නද?", { reply_markup: { inline_keyboard: [[{ text: "✅ ඔව්, Clear කරන්න", callback_data: "clear:yes" }, { text: "❌ එපා", callback_data: "page:account" }]] } });
+  if (data === "clear:yes") {
     histories.delete(userId); persist();
-    return bot.sendMessage(chatId, "🧹 Chat history එක clear කළා.");
+    return bot.sendMessage(chatId, "🧹 Chat history එක clear කළා.", { reply_markup: menu("main", userId) });
   }
-  if (data === "memory") return bot.sendMessage(chatId, `🧠 Saved entries: ${getHistory(userId).length}\n/forget මඟින් delete කරන්න.`);
-  if (data === "status") return bot.sendMessage(chatId, "Status බලන්න /status යවන්න.");
-  if (data === "help") return bot.sendMessage(chatId, "භාවිතය සඳහා /help යවන්න.");
+  if (data === "forget:confirm") return bot.sendMessage(chatId, "Saved conversation history එක මකන්නද?", { reply_markup: { inline_keyboard: [[{ text: "🗑️ මකන්න", callback_data: "forget:yes" }, { text: "↩️ Cancel", callback_data: "page:account" }]] } });
+  if (data === "forget:yes") {
+    histories.delete(userId); persist();
+    return bot.sendMessage(chatId, "🗑️ Saved conversation history එක මකා දැම්මා.", { reply_markup: menu("main", userId) });
+  }
+  if (data === "memory") return bot.sendMessage(chatId, `🧠 Saved entries: ${getHistory(userId).length}\n/forget මඟින් delete කරන්න.`, { reply_markup: menu("account", userId) });
+  if (data === "status") {
+    try {
+      const r = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 8000 });
+      const installed = (r.data?.models || []).some(m => m.name === AI_MODEL || m.name.startsWith(AI_MODEL + ":"));
+      return bot.sendMessage(chatId, `📊 SHAN AI STATUS\n\n✅ Telegram Bot Online\n✅ Ollama Reachable\n${installed ? "✅" : "⚠️"} Model: ${AI_MODEL}`, { reply_markup: menu("main", userId) });
+    } catch { return bot.sendMessage(chatId, "⚠️ Ollama server එකට සම්බන්ධ වෙන්න බැහැ.", { reply_markup: menu("main", userId) }); }
+  }
+  if (data === "help") return bot.sendMessage(chatId, "ℹ️ Help සඳහා /help යවන්න.", { reply_markup: menu("main", userId) });
+  if (data === "admin") {
+    if (!isAdmin(userId)) return bot.sendMessage(chatId, "⛔ Admin access නැහැ.");
+    const users = Object.keys(store.stats.users).length;
+    const messages = Object.values(store.stats.users).reduce((sum,u) => sum + (u.messages || 0), 0);
+    const mem = process.memoryUsage();
+    return bot.sendMessage(chatId, `👑 ADMIN DASHBOARD\n\nUsers: ${users}\nMessages: ${messages}\nSearches: ${store.stats.searches}\nFiles: ${store.stats.files}\nModel: ${AI_MODEL}\nRAM: ${Math.round(mem.rss / 1024 / 1024)} MB`, { reply_markup: menu("main", userId) });
+  }
 });
-
 bot.on("message", async msg => {
   if (msg.from?.is_bot) return;
   trackUser(msg.from.id);
