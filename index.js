@@ -145,7 +145,13 @@ async function webSearch(query) {
     const snippet = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\//i);
     if (!link) continue;
     const title = decodeHtml(link[2].replace(/<[^>]*>/g, "").trim());
-    const href = decodeHtml(link[1]);
+    let href = decodeHtml(link[1]);
+    if (href.startsWith("//")) href = "https:" + href;
+    try {
+      const parsed = new URL(href);
+      const destination = parsed.searchParams.get("uddg");
+      if (destination) href = destination;
+    } catch {}
     const description = decodeHtml((snippet?.[1] || "").replace(/<[^>]*>/g, "").trim());
     if (title && /^https?:\/\//i.test(href)) results.push({ title, url: href, description });
     if (results.length >= 5) break;
