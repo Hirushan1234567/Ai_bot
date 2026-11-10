@@ -1,7 +1,7 @@
 {
   "name": "shan-uncensored-ai",
-  "version": "1.0.0",
-  "description": "SHAN AI Telegram bot powered by a local Ollama model",
+  "version": "1.1.0",
+  "description": "SHAN AI Telegram assistant powered by local Ollama",
   "type": "module",
   "main": "index.js",
   "scripts": {
