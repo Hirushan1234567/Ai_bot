@@ -212,9 +212,9 @@ bot.onText(/^\/start(?:@\w+)?$/, async msg => {
 bot.onText(/^\/help(?:@\w+)?$/, async msg => {
   await bot.sendMessage(msg.chat.id,
     "📚 *Commands*\n/start - Main menu\n/mode - Select AI mode\n/search query - Web search\n/memory - Saved conversation memory\n/forget - Delete your saved memory/history\n/clear - Clear current chat history\n/myid - Show your Telegram user ID\n/status - Check Ollama\n/admin - Admin statistics (admin only)\n\nFile Analyzer: send a supported text/code file as a Telegram document.",
-    { parse_mode: "Markdown", ...menu() });
+    { parse_mode: "Markdown", ...menu("main", msg.from.id) });
 });
-bot.onText(/^\/mode(?:@\w+)?$/, msg => bot.sendMessage(msg.chat.id, "Mode එක තෝරන්න:", menu()));
+bot.onText(/^\/mode(?:@\w+)?$/, msg => bot.sendMessage(msg.chat.id, "Mode එක තෝරන්න:", menu("modes", msg.from.id)));
 bot.onText(/^\/myid(?:@\w+)?$/, msg => bot.sendMessage(msg.chat.id, `ඔයාගේ Telegram User ID: ${msg.from.id}\nAdmin ලෙස සකස් කිරීමට ADMIN_USER_IDS තුළ මේ අංකය දාන්න.`));
 bot.onText(/^\/clear(?:@\w+)?$/, msg => {
   histories.delete(String(msg.from.id)); persist();
