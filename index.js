@@ -90,8 +90,8 @@ async function askOllama(userId, userText) {
 
   const response = await axios.post(
     `${OLLAMA_URL}/api/chat`,
-    { model: AI_MODEL, messages, stream: false },
-    { timeout: 180000, headers: { "Content-Type": "application/json" } }
+    { model: AI_MODEL, messages, stream: false, options: { num_predict: 384, num_ctx: 4096 } },
+    { timeout: 600000, headers: { "Content-Type": "application/json" } }
   );
 
   const answer = response.data?.message?.content?.trim();
@@ -199,6 +199,9 @@ bot.on("message", async (msg) => {
   }
 
   const status = await bot.sendMessage(msg.chat.id, "⏳ AI හිතමින් ඉන්නවා...");
+  const typing = setInterval(() => {
+    bot.sendChatAction(msg.chat.id, "typing").catch(() => {});
+  }, 5000);
   try {
     const answer = await askOllama(msg.from.id, text);
     await bot.deleteMessage(msg.chat.id, status.message_id).catch(() => {});
@@ -208,8 +211,12 @@ bot.on("message", async (msg) => {
     await bot.deleteMessage(msg.chat.id, status.message_id).catch(() => {});
     const detail = error.code === "ECONNREFUSED"
       ? "Ollama server එකට සම්බන්ධ වෙන්න බැහැ. Ollama run වෙනවාද සහ OLLAMA_URL හරිද බලන්න."
-      : "AI response එක ලබාගන්න බැරි වුණා. Model එක install කරලා තියෙනවාද සහ Ollama logs බලන්න.";
+      : error.code === "ECONNABORTED"
+        ? "AI පිළිතුරට විනාඩි 10ක් ගතවුණා. කෙටි ප්‍රශ්නයක් යළි එවන්න."
+        : "AI response එක ලබාගන්න බැරි වුණා. Ollama logs පරීක්ෂා කරන්න.";
     await bot.sendMessage(msg.chat.id, `⚠️ ${detail}`);
+  } finally {
+    clearInterval(typing);
   }
 });
 
